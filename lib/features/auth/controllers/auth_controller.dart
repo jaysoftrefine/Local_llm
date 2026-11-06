@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
@@ -137,12 +139,17 @@ class AuthController extends ChangeNotifier {
 
       // Try lightweight sign in to refresh tokens if possible
       try {
-        final lightweightAccount = await GoogleSignIn.instance.attemptLightweightAuthentication();
+        // Silent sign-in is optional. Do not block the login screen if the
+        // Google SDK cannot complete this check (for example, offline).
+        final lightweightAuth = GoogleSignIn.instance.attemptLightweightAuthentication();
+        final lightweightAccount = lightweightAuth == null
+            ? null
+            : await lightweightAuth.timeout(const Duration(seconds: 8));
         if (lightweightAccount != null) {
           await _handleAuthenticatedAccount(lightweightAccount);
         }
       } catch (e) {
-        debugPrint('[AuthController] Lightweight auth skipped/silent: $e');
+        debugPrint('[AuthController] Lightweight auth skipped or timed out: $e');
       }
     } catch (e) {
       debugPrint('[AuthController] Error checking existing session: $e');
@@ -166,13 +173,15 @@ class AuthController extends ChangeNotifier {
       await _applyGoogleClientIds();
 
       // 1. Authenticate with Google
-      final GoogleSignInAccount account = await GoogleSignIn.instance.authenticate(
-        scopeHint: gmailScopes,
-      );
+      final GoogleSignInAccount account = await GoogleSignIn.instance
+          .authenticate(scopeHint: gmailScopes)
+          .timeout(const Duration(seconds: 90));
 
       // 2. Authorize Gmail scopes
       final GoogleSignInClientAuthorization authorization =
-          await account.authorizationClient.authorizeScopes(gmailScopes);
+          await account.authorizationClient
+              .authorizeScopes(gmailScopes)
+              .timeout(const Duration(seconds: 90));
 
       final accessToken = authorization.accessToken;
       final idToken = account.authentication.idToken;
@@ -222,6 +231,11 @@ class AuthController extends ChangeNotifier {
         _errorMessage = 'Google Sign In failed: ${e.description ?? e.code.name}';
       }
       debugPrint('[AuthController] GoogleSignInException: $_errorMessage');
+      return false;
+    } on TimeoutException {
+      _errorMessage =
+          'Google sign-in timed out. Check your internet connection and Google OAuth setup, then try again.';
+      debugPrint('[AuthController] Google sign-in timed out');
       return false;
     } catch (e) {
       _errorMessage = 'An error occurred during sign in: $e';

@@ -22,6 +22,12 @@ android {
         versionName = flutter.versionName
     }
 
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.

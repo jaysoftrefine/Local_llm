@@ -120,7 +120,7 @@ class LoginScreen extends StatelessWidget {
                           const SizedBox(width: 10),
                           const Expanded(
                             child: Text(
-                              'On-Device LLM: Ready for Phase 3 download',
+                              'On-device model download is available after sign-in',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: AppColors.textSecondary,
